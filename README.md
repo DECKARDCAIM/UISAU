@@ -9,11 +9,11 @@ Para instalar y configurar el proyecto, sigue los siguientes pasos:
 
 1. **Clona el repositorio:**
    ```bash
-   git clone https://github.com/OscarCastellanos01/sistema_encuesta_hospital
+   git clone https://github.com/DECKARDCAIM/UISAU.git
 
 2. **Navega al directorio del proyecto:**
    ```bash
-   cd sistema_encuesta_hospital
+   cd uisau
 
 3. **Instala las dependencias del proyecto:**
    ```bash
