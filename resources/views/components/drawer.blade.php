@@ -77,6 +77,9 @@
         <nav class="p-4 space-y-1">
             <h2 class="text-lg font-bold text-gray-700 mb-4">Menú</h2>
 
+            @php($rol = auth()->user()?->id_rol)
+
+            @if($rol !== 2)
             <a href="{{ route('dashboard') }}"
                 class="
                     flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition
@@ -89,6 +92,7 @@
                 </svg>
                 <span>Dashboard</span>
             </a>
+            @endif
 
             <a href="{{ route('encuesta.index') }}"
                 class="
@@ -122,6 +126,7 @@
                 <span>Encuestas</span>
             </a>
 
+            @if($rol !== 2)
             <a
                 href="{{ route('tipoEncuesta.index') }}"
                 class="
@@ -194,21 +199,24 @@
 
                 <span>Areas</span>
             </a>
-            <!-- Nivel de Satisfacción -->
-            <a href="{{ route('nivel_satisfaccion.index') }}" @click="open = false"
-                class="
-                    flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                    {{ request()->routeIs('nivel_satisfaccion.*')
-                        ? 'bg-gray-200 text-primary-700'
-                        : 'text-gray-700 hover:bg-gray-100' }}
-                ">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor" stroke-width="2">
-                    <!-- un icono apropiado, por ejemplo un gráfico de barras -->
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M9 17V9m4 8V5m4 12v-4" />
-                </svg>
-                <span>Nivel Satisfacción</span>
-            </a>
+
+            @if($rol === 3)
+                <!-- Nivel de Satisfacción -->
+                <a href="{{ route('nivel_satisfaccion.index') }}" @click="open = false"
+                    class="
+                        flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                        {{ request()->routeIs('nivel_satisfaccion.*')
+                            ? 'bg-gray-200 text-primary-700'
+                            : 'text-gray-700 hover:bg-gray-100' }}
+                    ">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <!-- un icono apropiado, por ejemplo un gráfico de barras -->
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M9 17V9m4 8V5m4 12v-4" />
+                    </svg>
+                    <span>Nivel Satisfacción</span>
+                </a>
+            @endif
 
             <!-- Especialidades -->
             <a href="{{ route('especialidad.index') }}" @click="open = false"
@@ -250,6 +258,7 @@
                 </svg>
                 <span>Usuarios</span>
             </a>
+            @endif
 
             {{-- <a
                 href="{{ route('bitacora.index') }}"

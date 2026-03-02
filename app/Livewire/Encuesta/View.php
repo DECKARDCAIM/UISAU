@@ -145,6 +145,13 @@ class View extends Component
         }
     }
     
+    public function cancel()
+    {
+        $this->resetForm();
+
+        return $this->redirectRoute('encuesta.index');
+    }
+    
     public function resetForm()
     {
         $this->reset(['answers', 'especialidad', 'edadPaciente', 'sexoPaciente']);

@@ -40,32 +40,31 @@
                     />
                 </div>
 
-                {{-- Select Rol (muestra el actual en el placeholder) --}}
+                {{-- Select Rol --}}
                 <div>
-                    <x-select
+                    <x-native-select
                         label="Rol"
                         wire:model.defer="id_rol"
-                        placeholder="Selecciona un rol"
                     >
+                        <option value="">Seleccione una opción</option>
                         @foreach($roles as $rol)
-                            <x-select.option
-                                :value="$rol->id"
-                                :label="$rol->nombre"
-                            />
+                            <option value="{{ $rol->id }}">
+                                {{ $rol->nombre }}
+                            </option>
                         @endforeach
-                    </x-select>
+                    </x-native-select>
                 </div>
 
-                {{-- Select Estado (muestra el actual en el placeholder) --}}
+                {{-- Select Estado --}}
                 <div>
-                    <x-select
+                    <x-native-select
                         label="Estado"
                         wire:model.defer="estado_usuario"
-                        placeholder="Selecciona un estado"
                     >
-                        <x-select.option :value="1" label="Activo" />
-                        <x-select.option :value="0" label="Inactivo" />
-                    </x-select>
+                        <option value="">Seleccione una opción</option>
+                        <option value="1">Activo</option>
+                        <option value="0">Inactivo</option>
+                    </x-native-select>
                     @error('estado_usuario')
                         <span class="text-xs text-red-600">{{ $message }}</span>
                     @enderror
@@ -75,6 +74,17 @@
 
             {{-- Botones --}}
             <div class="flex justify-between items-center">
+                <x-button
+                    flat
+                    label="Cancelar"
+                    wire:click="cancel"
+                    spinner="cancel"
+                    spinner-target="cancel"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70"
+                    wire:target="cancel"
+                />
+
                 <x-button
                     primary
                     label="Actualizar Usuario"

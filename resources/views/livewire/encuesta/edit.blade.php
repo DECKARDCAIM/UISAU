@@ -95,22 +95,20 @@
                                 wire:model.defer="questions.{{ $idx }}.titulo"
                             />
             
-                            <x-select 
+                            <x-native-select
                                 class="mt-5"
                                 label="Tipo de Pregunta *"
                                 wire:model.live="questions.{{ $idx }}.tipoPregunta"
-                                :options="[
-                                    ['value' => 'nivel_satisfaccion', 'label' => 'Nivel de Satisfacción'],
-                                    ['value' => 'texto', 'label' => 'Texto'],
-                                    ['value' => 'numero', 'label' => 'Número'],
-                                    ['value' => 'fecha', 'label' => 'Fecha'],
-                                    ['value' => 'hora', 'label' => 'Hora'],
-                                    ['value' => 'fecha_hora', 'label' => 'Fecha y Hora'],
-                                    ['value' => 'select', 'label' => 'Select']
-                                ]"
-                                option-label="label"
-                                option-value="value"
-                            />
+                            >
+                                <option value="">Seleccione una opción</option>
+                                <option value="nivel_satisfaccion">Nivel de Satisfacción</option>
+                                <option value="texto">Texto</option>
+                                <option value="numero">Número</option>
+                                <option value="fecha">Fecha</option>
+                                <option value="hora">Hora</option>
+                                <option value="fecha_hora">Fecha y Hora</option>
+                                <option value="select">Select</option>
+                            </x-native-select>
 
                             @if ($q['tipoPregunta'] === 'select')
                                 <div class="space-y-2 mt-4">

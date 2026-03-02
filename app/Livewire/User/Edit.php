@@ -56,6 +56,11 @@ class Edit extends Component
         return redirect()->route('user.index');
     }
 
+    public function cancel()
+    {
+        return $this->redirectRoute('user.index');
+    }
+
     public function render()
     {
         return view('livewire.user.edit');

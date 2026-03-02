@@ -148,7 +148,15 @@ class Create extends Component
             session()->flash('error', 'Error al crear encuesta: ' . $e->getMessage());
         }
 
+    }
 
+    public function cancel()
+    {
+        $this->reset();
+        $this->resetErrorBag();
+        $this->resetValidation();
+
+        return $this->redirectRoute('encuesta.index');
     }
 
     public function render()

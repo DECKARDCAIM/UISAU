@@ -32,48 +32,45 @@
     
             <div class="grid gap-4 md:grid-cols-3">
                 <div>
-                    <x-select 
+                    <x-native-select 
                         label="Área *"
-                        placeholder="Selecciona área"
                         wire:model.defer="idArea"
                     >
+                        <option value="">Seleccione una opción</option>
                         @foreach($areas as $area)
-                            <x-select.option 
-                                value="{{ $area->id }}"
-                                label="{{ $area->nombreArea }}" 
-                            />
+                            <option value="{{ $area->id }}">
+                                {{ $area->nombreArea }}
+                            </option>
                         @endforeach
-                    </x-select>
+                    </x-native-select>
                 </div>
     
                 <div>
-                    <x-select 
+                    <x-native-select 
                         label="Tipo de Encuesta *"
-                        placeholder="Selecciona tipo"
                         wire:model.defer="idTipoEncuesta"
                     >
+                        <option value="">Seleccione una opción</option>
                         @foreach($tiposEncuesta as $t)
-                            <x-select.option 
-                                value="{{ $t->id }}"
-                                label="{{ $t->nombreTipoEncuesta }}" 
-                            />
+                            <option value="{{ $t->id }}">
+                                {{ $t->nombreTipoEncuesta }}
+                            </option>
                         @endforeach
-                    </x-select>
+                    </x-native-select>
                 </div>
     
                 <div>
-                    <x-select 
+                    <x-native-select 
                         label="Tipo de Cita *"
-                        placeholder="Selecciona cita"
                         wire:model.defer="idTipoCita"
                     >
+                        <option value="">Seleccione una opción</option>
                         @foreach($tiposCita as $tc)
-                            <x-select.option 
-                                value="{{ $tc->id }}"
-                                label="{{ $tc->nombreTipoCita }}" 
-                            />
+                            <option value="{{ $tc->id }}">
+                                {{ $tc->nombreTipoCita }}
+                            </option>
                         @endforeach
-                    </x-select>
+                    </x-native-select>
                 </div>
             </div>
     
@@ -99,22 +96,20 @@
                                 wire:model.defer="questions.{{ $idx }}.titulo"
                             />
             
-                            <x-select 
+                            <x-native-select
                                 class="mt-5"
                                 label="Tipo de Pregunta *"
                                 wire:model.live="questions.{{ $idx }}.tipoPregunta"
-                                :options="[
-                                    ['value' => 'nivel_satisfaccion', 'label' => 'Nivel de Satisfacción'],
-                                    ['value' => 'texto', 'label' => 'Texto'],
-                                    ['value' => 'numero', 'label' => 'Número'],
-                                    ['value' => 'fecha', 'label' => 'Fecha'],
-                                    ['value' => 'hora', 'label' => 'Hora'],
-                                    ['value' => 'fecha_hora', 'label' => 'Fecha y Hora'],
-                                    ['value' => 'select', 'label' => 'Select']
-                                ]"
-                                option-label="label"
-                                option-value="value"
-                            />
+                            >
+                                <option value="">Seleccione una opción</option>
+                                <option value="nivel_satisfaccion">Nivel de Satisfacción</option>
+                                <option value="texto">Texto</option>
+                                <option value="numero">Número</option>
+                                <option value="fecha">Fecha</option>
+                                <option value="hora">Hora</option>
+                                <option value="fecha_hora">Fecha y Hora</option>
+                                <option value="select">Select</option>
+                            </x-native-select>
 
                             @if ($q['tipoPregunta'] === 'select')
                                 <div class="space-y-2">
@@ -174,7 +169,18 @@
                 </div>
             </div>
     
-            <div class="flex justify-end">
+            <div class="flex justify-between items-center">
+                <x-button 
+                    flat
+                    label="Cancelar"
+                    wire:click="cancel"
+                    spinner="cancel"
+                    spinner-target="cancel"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70"
+                    wire:target="cancel"
+                />
+
                 <x-button 
                     primary 
                     label="Crear Encuesta" 

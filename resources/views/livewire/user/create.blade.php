@@ -40,22 +40,32 @@
                 </div>
 
                 <div>
-                    <x-select
+                    <x-native-select
                         label="Rol"
-                        placeholder="Selecciona un rol"
                         wire:model.defer="id_rol"
                     >
+                        <option value="">Seleccione una opción</option>
                         @foreach($roles as $rol)
-                            <x-select.option
-                                value="{{ $rol->id }}"
-                                label="{{ $rol->nombre }}"
-                            />
+                            <option value="{{ $rol->id }}">
+                                {{ $rol->nombre }}
+                            </option>
                         @endforeach
-                    </x-select>
+                    </x-native-select>
                 </div>
             </div>
             
-            <div class="flex justify-end">
+            <div class="flex justify-between items-center">
+                <x-button
+                    flat
+                    label="Cancelar"
+                    wire:click="cancel"
+                    spinner="cancel"
+                    spinner-target="cancel"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70"
+                    wire:target="cancel"
+                />
+
                 <x-button
                     primary
                     label="Crear Usuario"

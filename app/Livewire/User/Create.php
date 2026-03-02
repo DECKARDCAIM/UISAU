@@ -46,6 +46,15 @@ class Create extends Component
         $this->redirectRoute('user.index');
     }
 
+    public function cancel()
+    {
+        $this->reset(['name', 'email', 'password', 'estado_usuario', 'id_rol']);
+        $this->resetErrorBag();
+        $this->resetValidation();
+
+        return $this->redirectRoute('user.index');
+    }
+
     public function render()
     {
         return view('livewire.user.create', [

@@ -13,30 +13,34 @@
                     {{ session('error') }}
                 </div>
             @endif
-            
+
+            @php($esFacilitador = auth()->user()->id_rol == 2)
+
             <p class="text-4xl font-medium text-slate-900">Encuestas</p>
 
-            <a 
-                href="{{ route('encuesta.create') }}"
-                class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition bg-gray-200 text-primary-700 hover:bg-gray-300"
-                title="Crear encuesta"
-            >
-                <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    fill="none"
-                    viewBox="0 0 24 24" 
-                    stroke-width="1.5" 
-                    stroke="currentColor" 
-                    class="size-6"
+            @unless($esFacilitador)
+                <a 
+                    href="{{ route('encuesta.create') }}"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition bg-gray-200 text-primary-700 hover:bg-gray-300"
+                    title="Crear encuesta"
                 >
-                    <path 
-                        stroke-linecap="round" 
-                        stroke-linejoin="round" 
-                        d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" 
-                    />
-              </svg>              
-                <span>Crear</span>
-            </a>
+                    <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        fill="none"
+                        viewBox="0 0 24 24" 
+                        stroke-width="1.5" 
+                        stroke="currentColor" 
+                        class="size-6"
+                    >
+                        <path 
+                            stroke-linecap="round" 
+                            stroke-linejoin="round" 
+                            d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" 
+                        />
+                  </svg>              
+                    <span>Crear</span>
+                </a>
+            @endunless
         </div>
 
         <div class="mt-6 overflow-y-auto" style="max-height: 400px;">
@@ -54,27 +58,29 @@
                             <div class="space-y-1">
                                 <div class="flex items-baseline space-x-2">
 
-                                    <x-mini-button 
-                                        href="{{ route('encuesta.edit', $encuesta) }}" 
-                                        rounded 
-                                        flat 
-                                        warning
-                                        title="Editar encuesta"
-                                    >
-                                        <svg 
-                                            xmlns="http://www.w3.org/2000/svg" 
-                                            fill="none" 
-                                            viewBox="0 0 24 24" 
-                                            stroke-width="1.5" 
-                                            stroke="currentColor" 
-                                            class="size-4">
-                                            <path 
-                                                stroke-linecap="round" 
-                                                stroke-linejoin="round" 
-                                                d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" 
-                                            />
-                                        </svg>
-                                    </x-mini-button>
+                                    @unless($esFacilitador)
+                                        <x-mini-button 
+                                            href="{{ route('encuesta.edit', $encuesta) }}" 
+                                            rounded 
+                                            flat 
+                                            warning
+                                            title="Editar encuesta"
+                                        >
+                                            <svg 
+                                                xmlns="http://www.w3.org/2000/svg" 
+                                                fill="none" 
+                                                viewBox="0 0 24 24" 
+                                                stroke-width="1.5" 
+                                                stroke="currentColor" 
+                                                class="size-4">
+                                                <path 
+                                                    stroke-linecap="round" 
+                                                    stroke-linejoin="round" 
+                                                    d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" 
+                                                />
+                                            </svg>
+                                        </x-mini-button>
+                                    @endunless
 
                                     <p class="text-lg font-medium text-slate-900">
                                         {{ $encuesta->tituloEncuesta }} 
@@ -121,39 +127,63 @@
                                 {{ $encuesta->respuestas_count }}
                             </x-mini-button> --}}
 
-                            <x-mini-button
-                                href="{{ route('encuesta.view', $encuesta) }}"
-                                rounded 
-                                flat 
-                                green 
-                                icon="eye" 
-                                title="Ver encuesta" 
-                            />
+                            @if($esFacilitador)
+                                <x-mini-button 
+                                    href="{{ route('encuesta.response', $encuesta) }}"
+                                    rounded 
+                                    flat 
+                                    blue
+                                    title="Responder encuesta"
+                                >
+                                    <svg 
+                                        xmlns="http://www.w3.org/2000/svg" 
+                                        fill="none" 
+                                        viewBox="0 0 24 24" 
+                                        stroke-width="1.5" 
+                                        stroke="currentColor" 
+                                        class="w-4 h-4">
+                                        <path 
+                                            stroke-linecap="round" 
+                                            stroke-linejoin="round" 
+                                            d="M4.5 12h11.25m0 0L12 6.75M15.75 12 12 17.25" 
+                                        />
+                                    </svg>
+                                </x-mini-button>
+                            @else
+                                <x-mini-button
+                                    href="{{ route('encuesta.view', $encuesta) }}"
+                                    rounded 
+                                    flat 
+                                    green 
+                                    icon="eye" 
+                                    title="Ver encuesta" 
+                                />
 
-                            <x-mini-button 
-                                href="{{ route('encuesta.response', $encuesta) }}"
-                                rounded 
-                                flat 
-                                blue
-                                title="Copiar enlace encuesta"
-                            >
-                                <svg 
-                                    xmlns="http://www.w3.org/2000/svg" 
-                                    fill="none" 
-                                    viewBox="0 0 24 24" 
-                                    stroke-width="1.5" 
-                                    stroke="currentColor" 
-                                    class="w-4 h-4">
-                                <path 
-                                    stroke-linecap="round" 
-                                    stroke-linejoin="round" 
-                                    d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 
-                                        4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 
-                                        1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 
-                                        4.5a4.5 4.5 0 0 0 1.242 7.244" 
-                                    />
-                                </svg>
-                            </x-mini-button>
+                                <x-mini-button 
+                                    href="{{ route('encuesta.response', $encuesta) }}"
+                                    rounded 
+                                    flat 
+                                    blue
+                                    title="Copiar enlace encuesta"
+                                >
+                                    <svg 
+                                        xmlns="http://www.w3.org/2000/svg" 
+                                        fill="none" 
+                                        viewBox="0 0 24 24" 
+                                        stroke-width="1.5" 
+                                        stroke="currentColor" 
+                                        class="w-4 h-4">
+                                    <path 
+                                        stroke-linecap="round" 
+                                        stroke-linejoin="round" 
+                                        d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 
+                                            4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 
+                                            1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 
+                                            4.5a4.5 4.5 0 0 0 1.242 7.244" 
+                                        />
+                                    </svg>
+                                </x-mini-button>
+                            @endif
                         </div>
                     </li>                    
                 @empty

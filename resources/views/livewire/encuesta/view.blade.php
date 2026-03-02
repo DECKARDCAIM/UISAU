@@ -35,18 +35,17 @@
             {{-- Encabezado --}}
             <div class="grid gap-4 md:grid-cols-2 mb-6">
                 <div>
-                    <x-select
+                    <x-native-select
                         label="Especialidad"
-                        placeholder="Selecciona especialidad"
                         wire:model="especialidad"
                     >
-                    @foreach($especialidades as $esp)
-                        <x-select.option 
-                            value="{{ $esp->id }}" 
-                            label="{{ $esp->nombreEspecialidad }}" 
-                        />
-                    @endforeach
-                    </x-select>
+                        <option value="">Seleccione una opción</option>
+                        @foreach($especialidades as $esp)
+                            <option value="{{ $esp->id }}">
+                                {{ $esp->nombreEspecialidad }}
+                            </option>
+                        @endforeach
+                    </x-native-select>
                 </div>
                 <div>
                     <x-input
@@ -58,17 +57,14 @@
                     />
                 </div>
                 <div>
-                    <x-select
+                    <x-native-select
                         label="Sexo del Paciente"
-                        placeholder="Selecciona sexo"
                         wire:model="sexoPaciente"
-                        :options="[
-                        ['value' => 1, 'label' => 'Masculino'],
-                        ['value' => 2, 'label' => 'Femenino'],
-                        ]"
-                        option-label="label"
-                        option-value="value"
-                    />
+                    >
+                        <option value="">Seleccione una opción</option>
+                        <option value="1">Masculino</option>
+                        <option value="2">Femenino</option>
+                    </x-native-select>
                 </div>
             </div>
             <div class="grid gap-6 md:grid-cols-2">
@@ -175,13 +171,13 @@
             <x-button 
                 flat 
                 label="Cancelar" 
-                wire:click="resetForm" 
+                wire:click="cancel" 
                 class="w-full md:w-auto"
-                spinner="resetForm"
-                spinner-target="resetForm"
+                spinner="cancel"
+                spinner-target="cancel"
                 wire:loading.attr="disabled"
                 wire:loading.class="opacity-70"
-                wire:target="resetForm" 
+                wire:target="cancel" 
             />
             <x-button
                 primary
