@@ -11,15 +11,25 @@
                     <x-badge flat red label="Inactivo" />
                 @endif
 
-                {{-- Botón exportar PDF: siempre disponible --}}
-                <a
-                    href="{{ $this->pdfUrl }}"
-                    target="_blank"
-                    title="Exportar a PDF con los filtros aplicados"
-                    class="text-red-600 hover:text-red-800 transition-colors"
-                >
-                    <x-icon name="document-arrow-down" class="h-6 w-6" />
-                </a>
+                {{-- Botón exportar PDF: condicional a fechas --}}
+                @if($this->canExport)
+                    <a
+                        href="{{ $this->pdfUrl }}"
+                        target="_blank"
+                        title="Exportar a PDF con los filtros aplicados"
+                        class="text-red-600 hover:text-red-800 transition-colors"
+                    >
+                        <x-icon name="document-arrow-down" class="h-6 w-6" />
+                    </a>
+                @else
+                    <button
+                        onclick="window.$wireui.notify({title: 'Filtros requeridos', description: 'Debe seleccionar un rango de fechas o ingresar un código de respuesta para generar el reporte.', icon: 'info'})"
+                        title="Seleccione fechas o código primero"
+                        class="text-gray-300 cursor-not-allowed"
+                    >
+                        <x-icon name="document-arrow-down" class="h-6 w-6" />
+                    </button>
+                @endif
             </div>
 
             {{-- Botón limpiar filtros --}}
@@ -38,8 +48,8 @@
         <div class="rounded-2xl border border-slate-200 bg-slate-50/60 p-6 space-y-4">
             <p class="text-xs font-semibold uppercase tracking-widest text-slate-400">Filtros</p>
 
-            {{-- Fila 1: código, fechas, sexo --}}
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+            {{-- Fila 1: código, fechas --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
                 <div>
                     <x-input
                         label="Buscar código"
@@ -62,18 +72,6 @@
                         label="Hasta"
                         wire:model.live="dateTo"
                     />
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Sexo</label>
-                    <select
-                        wire:model.live="sexo"
-                        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">Todos</option>
-                        <option value="1">Masculino</option>
-                        <option value="2">Femenino</option>
-                    </select>
                 </div>
             </div>
 

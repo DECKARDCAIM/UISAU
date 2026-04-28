@@ -357,9 +357,9 @@
                 <div class="page-break"></div>
             @endif
 
-            <h2>Fecha: {{ strtoupper($dia['fecha']) }}</h2>
+            <h2>{{ strtoupper($dia['fecha']) }}</h2>
             <div class="dia-resumen">
-                Total encuestados este día: {{ $dia['totalEncuestados'] }}
+                Total de encuestados en este período: {{ $dia['totalEncuestados'] }}
             </div>
 
             @foreach($dia['preguntas'] as $titulo => $info)

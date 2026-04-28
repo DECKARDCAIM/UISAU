@@ -70,44 +70,44 @@ class InformeExportPdfController extends Controller
     {
         set_time_limit(300);
 
-        /* ─── Parámetros de fechas ─── */
+        /* ─── Parámetros de filtros ─── */
         $dateFrom = request('dateFrom');
         $dateTo   = request('dateTo');
+        $search   = request('search');
+        $sexo     = request('sexo', '');
+
+        // Validación: Al menos (Desde Y Hasta) O (Código de búsqueda)
+        if ((!$dateFrom || !$dateTo) && !$search) {
+            return redirect()->back()->with('error', 'Debe seleccionar un rango de fechas o ingresar un código para generar el reporte.');
+        }
 
         $f1 = $dateFrom ? Carbon::parse($dateFrom)->startOfDay() : null;
         $f2 = $dateTo   ? Carbon::parse($dateTo)->endOfDay()   : null;
 
-        $diferenciaDias = 0;
+        // Texto del período para el PDF
         if ($f1 && $f2) {
             $diferenciaDias = (int) $f1->diffInDays($f2) + 1;
-        }
-
-        if ($diferenciaDias >= 7) {
-            $semanas = intdiv($diferenciaDias, 7);
-            $diasRestantes = $diferenciaDias % 7;
-            $textoPeriodo = $semanas . ' semana' . ($semanas > 1 ? 's' : '');
-            if ($diasRestantes > 0) {
-                $textoPeriodo .= ' y ' . $diasRestantes . ' día' . ($diasRestantes > 1 ? 's' : '');
+            if ($diferenciaDias >= 7) {
+                $semanas = intdiv($diferenciaDias, 7);
+                $diasRestantes = $diferenciaDias % 7;
+                $textoPeriodo = $semanas . ' semana' . ($semanas > 1 ? 's' : '');
+                if ($diasRestantes > 0) $textoPeriodo .= ' y ' . $diasRestantes . ' día' . ($diasRestantes > 1 ? 's' : '');
+            } else {
+                $textoPeriodo = $diferenciaDias . ' día' . ($diferenciaDias > 1 ? 's' : '');
             }
         } else {
-            $textoPeriodo = $diferenciaDias . ' día' . ($diferenciaDias > 1 ? 's' : '');
+            $textoPeriodo = "Búsqueda por código: " . $search;
         }
 
-        /* ─── Filtro de sexo ─── */
-        $sexo = request('sexo', '');
-
         /* ─── Filtros dinámicos de preguntas ─── */
-        // Se reciben codificados en base64+json: qf=base64({"preguntaId":"valor",...})
         $questionFilters = [];
         $qfRaw = request('qf', '');
         if ($qfRaw) {
             $decoded = json_decode(base64_decode($qfRaw), true);
-            if (is_array($decoded)) {
-                $questionFilters = $decoded;
-            }
+            if (is_array($decoded)) $questionFilters = $decoded;
         }
 
-        /* ─── Preguntas filtrables para la descripción en el PDF ─── */
+        /* ─── Preguntas filtrables ─── */
         $preguntasFiltrables = EncuestaPregunta::where('idEncuesta', $encuesta->id)
             ->where('estadoPregunta', 1)
             ->whereIn('tipoPregunta', ['select', 'nivel_satisfaccion'])
@@ -118,20 +118,14 @@ class InformeExportPdfController extends Controller
         $nivelesMap = nivel_satisfaccion::where('estadoNivelSatisfaccion', 1)
             ->pluck('nombreNivelSatisfaccion', 'id');
 
-        /* ─── Construir query base con todos los filtros ─── */
+        /* ─── Construir query base ─── */
         $query = EncuestaRespuesta::where('idEncuesta', $encuesta->id);
 
-        if ($dateFrom) {
-            $query->where('created_at', '>=', $dateFrom . ' 00:00:00');
-        }
-        if ($dateTo) {
-            $query->where('created_at', '<=', $dateTo . ' 23:59:59');
-        }
-        if ($sexo !== '') {
-            $query->where('sexoPaciente', $sexo);
-        }
+        if ($f1) $query->where('created_at', '>=', $f1);
+        if ($f2) $query->where('created_at', '<=', $f2);
+        if ($search) $query->where('codigoEncuestaRespuesta', 'like', "%{$search}%");
+        if ($sexo !== '') $query->where('sexoPaciente', $sexo);
 
-        // Filtros dinámicos por pregunta
         foreach ($questionFilters as $preguntaId => $valor) {
             if ($valor === '' || $valor === null) continue;
 
@@ -151,7 +145,7 @@ class InformeExportPdfController extends Controller
             }
         }
 
-        /* ─── Recolectar datos con chunk para eficiencia ─── */
+        /* ─── Recolectar datos ─── */
         $respuestas = collect();
 
         $query
@@ -167,7 +161,7 @@ class InformeExportPdfController extends Controller
                 }
             });
 
-        /* ─── Logo y Estética ─── */
+        /* ─── Logo ─── */
         $logoPath = public_path('images/logo.png');
         $logoBase64 = '';
         if (file_exists($logoPath)) {
@@ -235,58 +229,42 @@ class InformeExportPdfController extends Controller
                 ]));
         }
 
-        /* ─── Agrupar por fecha y construir reportData ─── */
-        $porFecha = $respuestas->groupBy(fn($r) =>
-            Carbon::parse($r->created_at)
-                ->locale('es')
-                ->translatedFormat('j \\d\\e F \\d\\e Y')
-        );
+        /* ─── Agrupación GENERAL (Un solo grupo) ─── */
+        $detallesGlobal = $respuestas->flatMap->detalles;
+        
+        $preguntasStats = $detallesGlobal
+            ->filter(fn($d) => $d->pregunta !== null)
+            ->groupBy(fn($d) => $d->pregunta->tituloPregunta)
+            ->map(function ($detallesPorPregunta) {
+                $tipoP = $detallesPorPregunta->first()->pregunta->tipoPregunta;
 
-        $reportData = $porFecha->map(function ($coleccion, $fecha) {
-            $preguntas = $coleccion->flatMap->detalles
-                ->groupBy(fn($d) => $d->pregunta->tituloPregunta)
-                ->map(function ($detallesPorPregunta) {
-                    $tipoP = $detallesPorPregunta->first()->pregunta->tipoPregunta;
+                if ($tipoP === 'texto') return ['tipo' => 'omit'];
 
-                    if ($tipoP === 'texto') {
-                        return ['tipo' => 'omit'];
+                if ($tipoP === 'hora') {
+                    $rangos = ['07-10' => 0, '10-13' => 0, '13-16' => 0, '16-19' => 0, '19-22' => 0];
+                    foreach ($detallesPorPregunta as $d) {
+                        $b = $this->bucketHora($d->respuestaHora);
+                        if ($b !== null && isset($rangos[$b])) $rangos[$b]++;
                     }
+                    return array_sum($rangos) > 0 ? ['tipo' => 'hora', 'rangos' => $rangos] : ['tipo' => 'omit'];
+                }
 
-                    if ($tipoP === 'hora') {
-                        $rangos = ['07-10' => 0, '10-13' => 0, '13-16' => 0, '16-19' => 0, '19-22' => 0];
-                        foreach ($detallesPorPregunta as $d) {
-                            $b = $this->bucketHora($d->respuestaHora);
-                            if ($b !== null && isset($rangos[$b])) {
-                                $rangos[$b]++;
-                            }
-                        }
-                        return array_sum($rangos) > 0
-                            ? ['tipo' => 'hora', 'rangos' => $rangos]
-                            : ['tipo' => 'omit'];
-                    }
+                if ($tipoP === 'select') {
+                    $opciones = $detallesPorPregunta->groupBy(fn($d) => $d->respuestaOpcion ?? 'Sin respuesta')->map->count();
+                    return array_sum($opciones->toArray()) > 0 ? ['tipo' => 'select', 'opciones' => $opciones] : ['tipo' => 'omit'];
+                }
 
-                    // select: agrupar por valor de opción
-                    if ($tipoP === 'select') {
-                        $opciones = $detallesPorPregunta
-                            ->groupBy(fn($d) => $d->respuestaOpcion ?? 'Sin respuesta')
-                            ->map->count();
-                        return array_sum($opciones->toArray()) > 0
-                            ? ['tipo' => 'select', 'opciones' => $opciones]
-                            : ['tipo' => 'omit'];
-                    }
+                $niv = $this->nivelesArray($detallesPorPregunta);
+                return array_sum($niv) > 0 ? ['tipo' => 'niveles', 'niveles' => $niv] : ['tipo' => 'omit'];
+            });
 
-                    $niv = $this->nivelesArray($detallesPorPregunta);
-                    return array_sum($niv) > 0
-                        ? ['tipo' => 'niveles', 'niveles' => $niv]
-                        : ['tipo' => 'omit'];
-                });
-
-            return [
-                'fecha'            => $fecha,
-                'totalEncuestados' => $coleccion->count(),
-                'preguntas'        => $preguntas,
-            ];
-        })->values();
+        $reportData = collect([
+            [
+                'fecha'            => 'RESUMEN GENERAL DEL PERÍODO',
+                'totalEncuestados' => $respuestas->count(),
+                'preguntas'        => $preguntasStats,
+            ]
+        ]);
 
         /* ─── Construir etiquetas de filtros activos para el PDF ─── */
         $filtrosAplicados = [];

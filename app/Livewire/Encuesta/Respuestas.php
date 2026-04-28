@@ -59,6 +59,7 @@ class Respuestas extends Component
             'dateFrom' => $this->dateFrom,
             'dateTo'   => $this->dateTo,
             'sexo'     => $this->sexo,
+            'search'   => $this->search,
         ]);
 
         // Serializar filtros de preguntas: solo los no vacíos
@@ -80,6 +81,13 @@ class Respuestas extends Component
             || filled($this->dateTo)
             || filled($this->sexo)
             || !empty($qf);
+    }
+
+    /* ─── Determina si puede exportar (Fechas obligatorias) ─── */
+
+    public function getCanExportProperty(): bool
+    {
+        return (filled($this->dateFrom) && filled($this->dateTo)) || filled($this->search);
     }
 
     /* ─── Render ─── */
