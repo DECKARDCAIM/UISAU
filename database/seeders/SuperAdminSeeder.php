@@ -14,13 +14,13 @@ class SuperAdminSeeder extends Seeder
     public function run(): void
     {
         User::firstOrCreate(
-            ['email' => 'admin@example.com'],
-            [
-                'name' => 'Super Admin',
-                'password' => bcrypt('admin123'),
-                'estado_usuario' => 1,
-                'id_rol' => 3
-            ]
+        ['email' => 'falla3235@coex.com'],
+        [
+            'name' => 'Cristoffer Falla',
+            'password' => bcrypt('CAllofduty123@%'),
+            'estado_usuario' => 1,
+            'id_rol' => 3
+        ]
         );
     }
 }

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Encuesta;
+use App\Models\EncuestaPregunta;
 use App\Models\EncuestaRespuesta;
+use App\Models\nivel_satisfaccion;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 
@@ -67,6 +69,8 @@ class InformeExportPdfController extends Controller
     public function exportPdf(Encuesta $encuesta)
     {
         set_time_limit(300);
+
+        /* ─── Parámetros de fechas ─── */
         $dateFrom = request('dateFrom');
         $dateTo   = request('dateTo');
 
@@ -78,26 +82,43 @@ class InformeExportPdfController extends Controller
             $diferenciaDias = (int) $f1->diffInDays($f2) + 1;
         }
 
-        if ($diferenciaDias >= 14) {
+        if ($diferenciaDias >= 7) {
             $semanas = intdiv($diferenciaDias, 7);
             $diasRestantes = $diferenciaDias % 7;
             $textoPeriodo = $semanas . ' semana' . ($semanas > 1 ? 's' : '');
             if ($diasRestantes > 0) {
                 $textoPeriodo .= ' y ' . $diasRestantes . ' día' . ($diasRestantes > 1 ? 's' : '');
             }
-        }
-        elseif ($diferenciaDias >= 7) {
-            $semanas = intdiv($diferenciaDias, 7);
-            $diasRestantes = $diferenciaDias % 7;
-            $textoPeriodo = $semanas . ' semana' . ($semanas > 1 ? 's' : '');
-            if ($diasRestantes > 0) {
-                $textoPeriodo .= ' y ' . $diasRestantes . ' día' . ($diasRestantes > 1 ? 's' : '');
-            }
-        }
-        else {
+        } else {
             $textoPeriodo = $diferenciaDias . ' día' . ($diferenciaDias > 1 ? 's' : '');
         }
 
+        /* ─── Filtro de sexo ─── */
+        $sexo = request('sexo', '');
+
+        /* ─── Filtros dinámicos de preguntas ─── */
+        // Se reciben codificados en base64+json: qf=base64({"preguntaId":"valor",...})
+        $questionFilters = [];
+        $qfRaw = request('qf', '');
+        if ($qfRaw) {
+            $decoded = json_decode(base64_decode($qfRaw), true);
+            if (is_array($decoded)) {
+                $questionFilters = $decoded;
+            }
+        }
+
+        /* ─── Preguntas filtrables para la descripción en el PDF ─── */
+        $preguntasFiltrables = EncuestaPregunta::where('idEncuesta', $encuesta->id)
+            ->where('estadoPregunta', 1)
+            ->whereIn('tipoPregunta', ['select', 'nivel_satisfaccion'])
+            ->with('opciones')
+            ->get()
+            ->keyBy('id');
+
+        $nivelesMap = nivel_satisfaccion::where('estadoNivelSatisfaccion', 1)
+            ->pluck('nombreNivelSatisfaccion', 'id');
+
+        /* ─── Construir query base con todos los filtros ─── */
         $query = EncuestaRespuesta::where('idEncuesta', $encuesta->id);
 
         if ($dateFrom) {
@@ -106,24 +127,56 @@ class InformeExportPdfController extends Controller
         if ($dateTo) {
             $query->where('created_at', '<=', $dateTo . ' 23:59:59');
         }
+        if ($sexo !== '') {
+            $query->where('sexoPaciente', $sexo);
+        }
 
+        // Filtros dinámicos por pregunta
+        foreach ($questionFilters as $preguntaId => $valor) {
+            if ($valor === '' || $valor === null) continue;
+
+            $pregunta = $preguntasFiltrables->get($preguntaId);
+            if (!$pregunta) continue;
+
+            if ($pregunta->tipoPregunta === 'nivel_satisfaccion') {
+                $query->whereHas('detalles', fn($q) =>
+                    $q->where('idPregunta', $preguntaId)
+                      ->where('idNivelSatisfaccion', $valor)
+                );
+            } elseif ($pregunta->tipoPregunta === 'select') {
+                $query->whereHas('detalles', fn($q) =>
+                    $q->where('idPregunta', $preguntaId)
+                      ->where('respuestaOpcion', $valor)
+                );
+            }
+        }
+
+        /* ─── Recolectar datos con chunk para eficiencia ─── */
         $respuestas = collect();
 
-        $queryParaChunk = $query
+        $query
             ->select(['id', 'created_at', 'sexoPaciente', 'edadPaciente'])
             ->with([
                 'detalles.pregunta:id,tituloPregunta,tipoPregunta',
                 'detalles.nivelSatisfaccion:id,nombreNivelSatisfaccion',
             ])
-            ->orderBy('created_at');
+            ->orderBy('created_at')
+            ->chunk(100, function ($chunk) use ($respuestas) {
+                foreach ($chunk as $r) {
+                    $respuestas->push($r);
+                }
+            });
 
-        $queryParaChunk->chunk(100, function ($chunk) use ($respuestas) {
-            foreach ($chunk as $r) {
-                $respuestas->push($r);
-            }
-        });
+        /* ─── Logo y Estética ─── */
+        $logoPath = public_path('images/logo.png');
+        $logoBase64 = '';
+        if (file_exists($logoPath)) {
+            $logoData = file_get_contents($logoPath);
+            $logoBase64 = 'data:image/' . pathinfo($logoPath, PATHINFO_EXTENSION) . ';base64,' . base64_encode($logoData);
+        }
 
-        $sexoCounts = ['Masculino'=>0, 'Femenino'=>0];
+        /* ─── Gráfica de sexo ─── */
+        $sexoCounts = ['Masculino' => 0, 'Femenino' => 0];
         foreach ($respuestas as $r) {
             if ($et = $this->normalizaSexo($r->sexoPaciente)) {
                 $sexoCounts[$et]++;
@@ -133,68 +186,74 @@ class InformeExportPdfController extends Controller
         if ($sexoCounts['Masculino'] + $sexoCounts['Femenino'] > 0) {
             $sexoChart = 'https://quickchart.io/chart?format=png&w=600&h=300&c='
                 . rawurlencode(json_encode([
-                    'type'=>'bar',
-                    'data'=>[
-                        'labels'=>['Masculino','Femenino'],
-                        'datasets'=>[[
-                            'backgroundColor'=>['#3498db','#e84393'],
-                            'data'=>array_values($sexoCounts),
+                    'type' => 'bar',
+                    'data' => [
+                        'labels'   => ['Masculino', 'Femenino'],
+                        'datasets' => [[
+                            'backgroundColor' => ['#1a5276', '#a93226'],
+                            'data'            => array_values($sexoCounts),
                         ]],
                     ],
-                    'options'=>[
-                        'title'=>['display'=>true,'text'=>'Distribución por sexo'],
-                        'legend'=>['display'=>false],
-                        'scales'=>['yAxes'=>[['ticks'=>['beginAtZero'=>true]]]],
+                    'options' => [
+                        'title'  => ['display' => true, 'text' => 'Distribución por sexo', 'fontSize' => 16, 'fontColor' => '#333'],
+                        'legend' => ['display' => false],
+                        'scales' => [
+                            'yAxes' => [['ticks' => ['beginAtZero' => true, 'stepSize' => 1]]],
+                            'xAxes' => [['ticks' => ['fontSize' => 12]]]
+                        ],
                     ],
                 ]));
         }
 
-        $edadBuckets = ['<18'=>0,'18-29'=>0,'30-44'=>0,'45-59'=>0,'≥60'=>0];
+        /* ─── Gráfica de edad ─── */
+        $edadBuckets = ['<18' => 0, '18-29' => 0, '30-44' => 0, '45-59' => 0, '≥60' => 0];
         foreach ($respuestas as $r) {
             if ($r->edadPaciente !== null) {
-                $bucket = $this->bucketEdad((int)$r->edadPaciente);
-                $edadBuckets[$bucket]++;
+                $edadBuckets[$this->bucketEdad((int)$r->edadPaciente)]++;
             }
         }
-
         $edadChart = null;
         if (array_sum($edadBuckets) > 0) {
             $edadChart = 'https://quickchart.io/chart?format=png&w=600&h=300&c='
                 . rawurlencode(json_encode([
-                    'type'=>'bar',
-                    'data'=>[
-                        'labels'=>array_keys($edadBuckets),
-                        'datasets'=>[[
-                            'backgroundColor'=>'#2d98da',
-                            'data'=>array_values($edadBuckets),
+                    'type' => 'bar',
+                    'data' => [
+                        'labels'   => array_keys($edadBuckets),
+                        'datasets' => [[
+                            'backgroundColor' => '#2471a3',
+                            'data'            => array_values($edadBuckets),
                         ]],
                     ],
-                    'options'=>[
-                        'title'=>['display'=>true,'text'=>'Distribución por edad'],
-                        'legend'=>['display'=>false],
-                        'scales'=>['yAxes'=>[['ticks'=>['beginAtZero'=>true]]]],
+                    'options' => [
+                        'title'  => ['display' => true, 'text' => 'Distribución por edad', 'fontSize' => 16, 'fontColor' => '#333'],
+                        'legend' => ['display' => false],
+                        'scales' => [
+                            'yAxes' => [['ticks' => ['beginAtZero' => true, 'stepSize' => 1]]],
+                            'xAxes' => [['ticks' => ['fontSize' => 12]]]
+                        ],
                     ],
                 ]));
         }
 
+        /* ─── Agrupar por fecha y construir reportData ─── */
         $porFecha = $respuestas->groupBy(fn($r) =>
             Carbon::parse($r->created_at)
                 ->locale('es')
                 ->translatedFormat('j \\d\\e F \\d\\e Y')
         );
 
-        $reportData = $porFecha->map(function($coleccion, $fecha) {
+        $reportData = $porFecha->map(function ($coleccion, $fecha) {
             $preguntas = $coleccion->flatMap->detalles
                 ->groupBy(fn($d) => $d->pregunta->tituloPregunta)
-                ->map(function($detallesPorPregunta) {
+                ->map(function ($detallesPorPregunta) {
                     $tipoP = $detallesPorPregunta->first()->pregunta->tipoPregunta;
 
                     if ($tipoP === 'texto') {
-                        return ['tipo'=>'omit'];
+                        return ['tipo' => 'omit'];
                     }
 
                     if ($tipoP === 'hora') {
-                        $rangos = ['07-10'=>0,'10-13'=>0,'13-16'=>0,'16-19'=>0,'19-22'=>0];
+                        $rangos = ['07-10' => 0, '10-13' => 0, '13-16' => 0, '16-19' => 0, '19-22' => 0];
                         foreach ($detallesPorPregunta as $d) {
                             $b = $this->bucketHora($d->respuestaHora);
                             if ($b !== null && isset($rangos[$b])) {
@@ -202,38 +261,68 @@ class InformeExportPdfController extends Controller
                             }
                         }
                         return array_sum($rangos) > 0
-                            ? ['tipo'=>'hora','rangos'=>$rangos]
-                            : ['tipo'=>'omit'];
+                            ? ['tipo' => 'hora', 'rangos' => $rangos]
+                            : ['tipo' => 'omit'];
+                    }
+
+                    // select: agrupar por valor de opción
+                    if ($tipoP === 'select') {
+                        $opciones = $detallesPorPregunta
+                            ->groupBy(fn($d) => $d->respuestaOpcion ?? 'Sin respuesta')
+                            ->map->count();
+                        return array_sum($opciones->toArray()) > 0
+                            ? ['tipo' => 'select', 'opciones' => $opciones]
+                            : ['tipo' => 'omit'];
                     }
 
                     $niv = $this->nivelesArray($detallesPorPregunta);
                     return array_sum($niv) > 0
-                        ? ['tipo'=>'niveles','niveles'=>$niv]
-                        : ['tipo'=>'omit'];
+                        ? ['tipo' => 'niveles', 'niveles' => $niv]
+                        : ['tipo' => 'omit'];
                 });
 
             return [
-                'fecha' => $fecha,
+                'fecha'            => $fecha,
                 'totalEncuestados' => $coleccion->count(),
-                'preguntas' => $preguntas,
+                'preguntas'        => $preguntas,
             ];
         })->values();
 
+        /* ─── Construir etiquetas de filtros activos para el PDF ─── */
+        $filtrosAplicados = [];
+        if ($sexo === '1') $filtrosAplicados[] = 'Sexo: Masculino';
+        if ($sexo === '2') $filtrosAplicados[] = 'Sexo: Femenino';
+
+        foreach ($questionFilters as $preguntaId => $valor) {
+            if ($valor === '' || $valor === null) continue;
+            $pregunta = $preguntasFiltrables->get($preguntaId);
+            if (!$pregunta) continue;
+            if ($pregunta->tipoPregunta === 'nivel_satisfaccion') {
+                $nombreNivel = $nivelesMap->get($valor, $valor);
+                $filtrosAplicados[] = $pregunta->tituloPregunta . ': ' . $nombreNivel;
+            } else {
+                $filtrosAplicados[] = $pregunta->tituloPregunta . ': ' . $valor;
+            }
+        }
+
+        /* ─── Generar PDF ─── */
         $pdf = Pdf::loadView('informes.encuestas.pdf', [
-            'encuesta'   => $encuesta,
-            'reportData' => $reportData,
-            'sexoChart'  => $sexoChart,
-            'edadChart'  => $edadChart,
-            'dateFrom'   => $dateFrom,
-            'dateTo'     => $dateTo,
-            'textoPeriodo' => $textoPeriodo,
+            'encuesta'         => $encuesta,
+            'reportData'       => $reportData,
+            'sexoChart'        => $sexoChart,
+            'edadChart'        => $edadChart,
+            'dateFrom'         => $dateFrom,
+            'dateTo'           => $dateTo,
+            'textoPeriodo'     => $textoPeriodo,
+            'filtrosAplicados' => $filtrosAplicados,
+            'logoBase64'       => $logoBase64,
         ])
-        ->setPaper('a4','portrait')
+        ->setPaper('a4', 'portrait')
         ->setOptions([
             'isRemoteEnabled'      => true,
             'isHtml5ParserEnabled' => true,
         ]);
 
-        return $pdf->stream('informe_encuesta_'.$encuesta->codigoEncuesta.'.pdf');
+        return $pdf->stream('informe_encuesta_' . $encuesta->codigoEncuesta . '.pdf');
     }
 }
