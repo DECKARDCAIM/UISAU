@@ -503,6 +503,58 @@
 
                 </div> <!-- Fin bloque seguro -->
             @endforeach
+
+            {{-- SECCIÓN DE TIEMPOS DE ESPERA --}}
+            @if(isset($dia['waitStats']) && $dia['waitStats']['hasData'])
+                <div class="page-break"></div>
+                <h2>ANÁLISIS DE TIEMPOS DE ESPERA</h2>
+                
+                <div class="dia-resumen" style="background-color: #fef9e7; border-color: #f1c40f;">
+                    Promedio general de espera: <span style="font-size: 14px; color: #d35400;">{{ $dia['waitStats']['avgTexto'] }}</span>
+                    <br>
+                    <small>(Basado en {{ $dia['waitStats']['totalRespuestas'] }} registros con hora de ingreso y egreso)</small>
+                </div>
+
+                <div class="bloque-seguro">
+                    <h3>Distribución de Tiempos de Espera</h3>
+                    @php
+                        $rangosWait = $dia['waitStats']['rangos'];
+                        $urlWait = 'https://quickchart.io/chart?format=png&w=600&h=250&c='
+                            . rawurlencode(json_encode([
+                                'type' => 'bar',
+                                'data' => [
+                                    'labels'   => array_keys($rangosWait),
+                                    'datasets' => [[
+                                        'backgroundColor' => ['#27ae60', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c'],
+                                        'data'            => array_values($rangosWait),
+                                    ]],
+                                ],
+                                'options' => [
+                                    'legend' => ['display' => false],
+                                    'scales' => [
+                                        'yAxes' => [['ticks' => ['beginAtZero' => true, 'stepSize' => 1]]],
+                                    ],
+                                ],
+                            ]));
+                    @endphp
+
+                    <div class="chart-box">
+                        <img src="{{ $urlWait }}" alt="Gráfica de Espera">
+                    </div>
+
+                    <div class="analisis-box">
+                        <strong>Interpretación:</strong> 
+                        @if($dia['waitStats']['avgMin'] > 120)
+                            Se observa un tiempo de espera <strong class="c-rojo">CRÍTICO</strong>. El promedio supera las 2 horas, lo cual impacta significativamente en la percepción de calidad del servicio.
+                        @elseif($dia['waitStats']['avgMin'] > 60)
+                            El tiempo de espera es <strong class="c-naranja">REGULAR</strong>. Se recomienda revisar los flujos de atención para reducir el promedio a menos de 60 minutos.
+                        @else
+                            El tiempo de espera es <strong class="c-verde">ÓPTIMO</strong>. La mayoría de los pacientes son atendidos en un tiempo razonable.
+                        @endif
+                    </div>
+                </div>
+            @endif
+
         @endforeach
 
         <div class="page-break"></div>

@@ -49,6 +49,99 @@ class InformeExportPdfController extends Controller
         };
     }
 
+    private function calculateWaitTimes($respuestas): array
+    {
+        if ($respuestas->isEmpty()) {
+            return ['hasData' => false];
+        }
+
+        // 1. Identificar preguntas de ingreso y egreso
+        // Buscamos en todas las respuestas para estar seguros de encontrar las preguntas
+        $preguntaIngreso = null;
+        $preguntaEgreso = null;
+
+        foreach ($respuestas as $r) {
+            foreach ($r->detalles as $d) {
+                if (!$d->pregunta) continue;
+                $titulo = strtolower($d->pregunta->tituloPregunta);
+                if (!$preguntaIngreso && str_contains($titulo, 'ingreso') && $d->pregunta->tipoPregunta === 'hora') {
+                    $preguntaIngreso = $d->pregunta;
+                }
+                if (!$preguntaEgreso && str_contains($titulo, 'egreso') && $d->pregunta->tipoPregunta === 'hora') {
+                    $preguntaEgreso = $d->pregunta;
+                }
+            }
+            if ($preguntaIngreso && $preguntaEgreso) break;
+        }
+
+        if (!$preguntaIngreso || !$preguntaEgreso) {
+            return ['hasData' => false];
+        }
+
+        $tiempos = [];
+        $rangos = [
+            '< 30 min' => 0,
+            '30-60 min' => 0,
+            '1-2 horas' => 0,
+            '2-3 horas' => 0,
+            '> 3 horas' => 0,
+        ];
+
+        foreach ($respuestas as $r) {
+            $detIngreso = $r->detalles->firstWhere('idPregunta', $preguntaIngreso->id);
+            $detEgreso = $r->detalles->firstWhere('idPregunta', $preguntaEgreso->id);
+
+            if ($detIngreso && $detEgreso && $detIngreso->respuestaHora && $detEgreso->respuestaHora) {
+                try {
+                    $h1 = Carbon::parse($detIngreso->respuestaHora);
+                    $h2 = Carbon::parse($detEgreso->respuestaHora);
+                    
+                    if ($h2->lt($h1)) {
+                        $h2->addDay();
+                    }
+
+                    $diffMin = $h1->diffInMinutes($h2);
+                    $tiempos[] = $diffMin;
+
+                    if ($diffMin < 30) $rangos['< 30 min']++;
+                    elseif ($diffMin <= 60) $rangos['30-60 min']++;
+                    elseif ($diffMin <= 120) $rangos['1-2 horas']++;
+                    elseif ($diffMin <= 180) $rangos['2-3 horas']++;
+                    else $rangos['> 3 horas']++;
+                    
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+        }
+
+        if (empty($tiempos)) {
+            return ['hasData' => false];
+        }
+
+        $totalMin = array_sum($tiempos);
+        $avgMin = $totalMin / count($tiempos);
+        
+        $avgTexto = "";
+        if ($avgMin >= 60) {
+            $h = floor($avgMin / 60);
+            $m = round($avgMin % 60);
+            $avgTexto = $h . ' h ' . ($m > 0 ? $m . ' min' : '');
+        } else {
+            $avgTexto = round($avgMin) . ' min';
+        }
+
+        return [
+            'hasData' => true,
+            'avgMin' => $avgMin,
+            'avgTexto' => $avgTexto,
+            'totalRespuestas' => count($tiempos),
+            'rangos' => $rangos,
+            'maxMin' => max($tiempos),
+            'minMin' => min($tiempos),
+        ];
+    }
+
     private function bucketHora(?string $hhmmss): ?string
     {
         if (!$hhmmss) Return null;
@@ -258,11 +351,14 @@ class InformeExportPdfController extends Controller
                 return array_sum($niv) > 0 ? ['tipo' => 'niveles', 'niveles' => $niv] : ['tipo' => 'omit'];
             });
 
+        $waitStats = $this->calculateWaitTimes($respuestas);
+
         $reportData = collect([
             [
                 'fecha'            => 'RESUMEN GENERAL DEL PERÍODO',
                 'totalEncuestados' => $respuestas->count(),
                 'preguntas'        => $preguntasStats,
+                'waitStats'        => $waitStats,
             ]
         ]);
 
