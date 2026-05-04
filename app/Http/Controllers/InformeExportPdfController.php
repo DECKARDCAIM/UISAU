@@ -385,6 +385,7 @@ class InformeExportPdfController extends Controller
             'reportData'       => $reportData,
             'sexoChart'        => $sexoChart,
             'edadChart'        => $edadChart,
+            'sexoCounts'       => $sexoCounts,
             'dateFrom'         => $dateFrom,
             'dateTo'           => $dateTo,
             'textoPeriodo'     => $textoPeriodo,
